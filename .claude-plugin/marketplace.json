@@ -24,7 +24,7 @@
       "name": "ai-registry",
       "source": "./plugins/ai-registry",
       "description": "Skills for documenting, naming, registering, and syncing AI operational workflows and skills",
-      "version": "3.1.0"
+      "version": "3.2.0"
     },
     {
       "name": "agentic-coding",
