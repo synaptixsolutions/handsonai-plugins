@@ -15,7 +15,7 @@ Take a Workflow Definition and produce the Design deliverable: an AI Building Bl
 
 **Design principle:** The skill is the framework, the model is the platform expert. No platform names, SDK references, API patterns, GUI walkthroughs, or tool-specific examples appear anywhere in the skill. All platform-specific knowledge is researched by the model at runtime via web search.
 
-**Role:** You are an **Agentic AI Architect**. Your role is to design solutions that map business workflows to AI building blocks (Prompts, Context, Skills, Agents, MCP, Projects). You think in terms of system design, autonomy levels, orchestration mechanisms, and failure modes. Carry this framing through all of Design.
+**Role:** You are an **Agentic AI Architect**. Your role is to design solutions that map business workflows to AI building blocks across three layers — Intelligence (Model, Context, Memory, Project), Orchestration (Prompt, Skill, Agent), and Integration (MCP, API, SDK, CLI). You think in terms of system design, autonomy levels, orchestration mechanisms, and failure modes. Carry this framing through all of Design.
 
 ## Workflow
 
@@ -58,6 +58,11 @@ After confirming the platform, read the Workflow Definition and extract:
 
 - **Trigger/schedule** — from Scenario Metadata. If time-based, note as scheduled execution requirement and its implications (involvement mode, infrastructure). If manual, no action needed.
 
+- **Data readiness flags** — from the Context Shopping List's AI Accessible? and Readiness Notes columns. Summarize items flagged as "Partial" or "No". These inform step classification — a step that depends on inaccessible data may need:
+  - A prerequisite human step prepended (e.g., "Export CRM data to CSV")
+  - A different autonomy classification (Autonomous → Guided or Human, because a human must bridge the data gap)
+  - An integration research priority flag for the Construct phase (this tool connection is critical, not just nice-to-have)
+
 - **Browser access** — deferred to Construct. If any step's Data In references a web portal, CRM login, or authenticated website, flag it during step classification (Step 6) as a "requires browser access" note on that step. Do not ask about it here.
 
 - **Shareability** — deferred to Construct. The model asks about team sharing when generating artifacts in the Construct phase, not during Design.
@@ -71,6 +76,7 @@ Present a single confirmation block:
 > - **Tools needed:** [extracted list]
 > - **Trigger:** [extracted trigger] → [implications for involvement mode]
 > - [Any flags: e.g., "Step 4 involves logging into your CRM — I'll address how to connect that during the build."]
+> - **Data readiness:** [count] of [total] context items are not directly AI-accessible. [Brief summary of gaps]. These gaps may affect step autonomy and will need resolution before or during Construct.
 > - [Organizational lens: stakeholder implications — different platform access levels, notification needs for handoffs, shareability defaults to "yes"]
 >
 > Integration availability on [platform] will be researched during the Construct phase.
@@ -89,8 +95,8 @@ Before choosing an orchestration mechanism, assess where the *whole workflow* si
 **The autonomy spectrum:**
 
 ```
-Deterministic ———————— Guided ———————— Autonomous
-(fixed path)       (bounded decisions)     (context-driven path)
+Human ———— Deterministic ———————— Guided ———————— Autonomous
+(human-performed)  (fixed path)       (bounded decisions)     (context-driven path)
 ```
 
 | Level | Signals | Orchestration implications |
@@ -145,23 +151,189 @@ Only drop into the question-by-question flow when genuinely missing information.
 
 #### Step 6 — Classify Each Step
 
-For every refined step, determine:
-- **Autonomy level**: Human / Deterministic / Guided / Autonomous
-- **AI building block(s)**: Prompt, Context, Skill, Agent, MCP, Project
-- **Tools and connectors**: External tools, APIs, integrations needed (populated from the tool list in Architecture Decisions; integration availability is deferred to Construct)
+For every refined step, classify across all three building-block layers plus autonomy and role.
+
+**Per-step classification dimensions:**
+- **Autonomy level**: Human / Deterministic / Guided / Autonomous — use only these four canonical terms. Previous terms like "Semi-Autonomous", "AI-Assist", "AI-Deterministic", or compound forms are retired per the Workflow Design Matrix.
+- **Orchestration layer**: Prompt / Skill / Agent
+- **Integration layer**: Which integration block(s) apply, with use/build tags
+- **Intelligence layer**: Model capability, context sources, memory needs, project scope
 - **Human-in-the-loop gates**: Where human review is recommended
 - **Role** (organizational lens): Who performs this step — which role owns it
 
+**Integration layer blocks:**
+
+| Block | Description | Tag |
+|-------|-------------|-----|
+| **MCP** | Model Context Protocol server | Use existing / Build new |
+| **API** | REST, GraphQL, or other web API | Use existing |
+| **SDK** | Client library / framework | Use existing / Build new (rare) |
+| **CLI** | Command-line tool | Use existing |
+
+Most integration blocks are "use existing." "Build new" applies primarily to MCP (custom data sources) and rarely to SDKs.
+
+**Intelligence layer blocks:**
+
+| Block | Description | Per-step classification |
+|-------|-------------|----------------------|
+| **Model** | Which model capability | Reasoning-heavy / Fast / Vision |
+| **Context** | Files, docs, libraries needed | List specific sources |
+| **Memory** | Persistent state across runs | Yes / No + what's stored |
+| **Project** | Workspace or project scope | Yes / No |
+
+**Per-step classification table format:**
+
+| Step | Orchestration | Integration (use/build) | Intelligence | Human Gate |
+|------|--------------|------------------------|--------------|------------|
+| Pull calendar events | Skill | MCP: Google Calendar (use) | Model: fast | No |
+| Generate coaching questions | Agent | — | Model: reasoning; Context: powerful-questions.md | Yes |
+| Save prep notes | Skill | CLI: git (use) | Model: fast | No |
+
+Each row captures one step. The Orchestration column shows the block from that layer. The Integration column lists block(s) with use/build tags, or "—" if the step needs no external tool access. The Intelligence column lists applicable blocks with their per-step classification values.
+
+Additionally, for each step record the **autonomy level** and **role** (these appear in the full spec output but are omitted from the compact table above for readability).
+
+If a step's inputs include items flagged as "No" or "Partial" in the Context Shopping List, note this in the classification. A step classified as Autonomous but dependent on inaccessible data should be flagged: "Autonomy contingent on resolving data access for [item]."
+
 Present the mapping as a clear table. Walk through reasoning for non-obvious classifications. Ask if the user wants to adjust anything.
+
+**Integration Discovery**
+
+After classifying every step, recommend available integration options for each tool need identified in the Integration layer. This helps students who don't know what CLIs, APIs, MCP servers, or SDKs exist for a given tool.
+
+**Discovery process (4-part chain):**
+
+1. **Curated tool catalog** — Fetch the `curated-tools` section from the remote platform registry JSON (`https://raw.githubusercontent.com/jamesgray-ai/handsonai/main/plugins/business-first-ai/registries/platform-registry.json`). Match workflow tool needs against each entry's `integrations` field. Curated tools are instructor-vetted recommendations — present them first, marked as recommended.
+
+2. **Model knowledge** — Supplement with additional integration options the model knows about. For well-known integrations (Google Calendar, Gmail, Slack, GitHub, etc.), skip web search — model knowledge is sufficient.
+
+3. **Integration registries** — Fetch the `integration-registries` list from the same remote registry JSON. For each cataloged source, search for integrations matching the tool need:
+
+   ```json
+   {
+     "integration-registries": [
+       {
+         "name": "Context7",
+         "type": "mcp",
+         "tool": "query-docs",
+         "notes": "Library docs, API references, SDK docs via MCP"
+       },
+       {
+         "name": "context-hub",
+         "type": "local",
+         "check": "context-hub --version",
+         "notes": "Community-maintained integration registry (CLI)"
+       },
+       {
+         "name": "MCP Registry",
+         "type": "web-search",
+         "url": "https://mcpregistry.dev",
+         "notes": "MCP server directory"
+       }
+     ]
+   }
+   ```
+
+   **MCP tool availability:** Before querying an MCP-type registry source (e.g., Context7), check the user's configured MCP servers. If the required MCP server is not configured, skip it and proceed to the next source in the chain.
+
+4. **Web search (validation + fallback)** — For less common tools, when uncertain, or when no match is found in prior steps, search the web to verify existence and find current docs. Catches new releases and uncataloged tools. Batch searches when multiple tool needs are identified to avoid latency.
+
+   **Latency management:** Use judgment about when web search adds value. Well-known integrations (Google Calendar, Gmail, Slack, GitHub) don't need validation searches. Reserve web search for new or niche tools.
+
+   **Precedence rule:** When web search results contradict model knowledge (e.g., model proposes an MCP server that web search reveals was deprecated), web search takes precedence. Flag the discrepancy and present only verified options.
+
+**Matching semantics:** Matching is model-driven, not exact string matching. The model reads the workflow's tool needs (e.g., "Google Calendar access" from the step classification) and matches them against the `integrations` array values (e.g., `"google-calendar"`) using semantic understanding. This allows natural language tool needs to match standardized integration tags without requiring exact normalization.
+
+**Presentation format:**
+
+> **[Tool] access needed (Steps N, M):**
+>
+> **Curated (recommended):**
+> | Block | Option | Trade-off |
+> |-------|--------|-----------|
+> | MCP | [Name] MCP | Easiest — plug-and-play |
+> | CLI | [Name] CLI | Good for automation/scripting |
+>
+> **Also available:**
+> | Block | Option | Trade-off |
+> |-------|--------|-----------|
+> | API | [Name] REST API | Most flexible, more code |
+> | SDK | [Name] Client Library | Best DX for code-heavy builds |
+>
+> *Recommendation: [block] for [rationale]*
+
+#### Step 6b — Skill Discovery
+
+For every step classified as needing a **Skill** in Step 6, search for existing skills before assuming one needs to be built.
+
+**Search order:**
+
+1. **Local skills** — Search the user's own `.claude/skills/`, plugin skills directories, and any project-level skill directories. These are pre-vetted and can be recommended directly.
+
+2. **External registries** — Fetch the `skill-registries` list from the remote platform registry:
+
+   `https://raw.githubusercontent.com/jamesgray-ai/handsonai/main/plugins/business-first-ai/registries/platform-registry.json`
+
+   The registry JSON is fetched once per session and cached. Both Skill Discovery (Step 6b) and Integration Discovery use the same cached copy.
+
+   This provides a curated, always-current list of sites to search. For each registry, search for skills matching the step's requirements.
+
+   ```json
+   {
+     "skill-registries": [
+       {
+         "name": "skills.sh",
+         "type": "web-search",
+         "url": "https://skills.sh",
+         "notes": "Community skill marketplace"
+       },
+       {
+         "name": "Context7",
+         "type": "mcp",
+         "tool": "query-docs",
+         "notes": "Library docs and skills via MCP"
+       }
+     ]
+   }
+   ```
+
+   New registries are added by pushing to the JSON file — all users get them immediately, no plugin upgrade needed.
+
+3. **Web search fallback** — If no match found in cataloged registries, or if the registry fetch fails, search the web for community skills that could fulfill the step. This also catches new skill registries not yet in the catalog.
+
+4. **User approval gate** — Present all discovered skills as **candidates**, clearly separated into:
+   - **Local (pre-vetted):** Skills the user already has installed. Can be included in the spec with a confirmation.
+   - **External (requires vetting):** Community skills from registries or web search. Flag security implications — these run with the model's permissions and should be reviewed before adoption. User must explicitly approve each external skill candidate before it's included.
+
+**Presentation format:**
+
+For each step that needs a skill, present candidates in a table:
+
+> **Step 3 needs a skill: "Format coaching prep notes"**
+> | Source | Skill | Status |
+> |--------|-------|--------|
+> | Local | `coaching-prep-notes-assembly` (your plugin) | Pre-vetted — include? |
+> | skills.sh | `markdown-document-builder` by @community | Requires review — [link] |
+> | Web search | `doc-formatter` on GitHub | Requires review — [link] |
+> | None found | Build new | Fallback |
+>
+> *External skills run with model permissions. Review source code before approving.*
+
+If no suitable existing skill is found for a step, tag that step as **"build new"** — it flows into Step 7 (Identify Skill Candidates).
 
 #### Step 7 — Identify Skill Candidates
 
-Tag steps that should become skills. For each skill candidate, document:
+For steps where Skill Discovery (Step 6b) found an existing skill, skip to the next step.
+
+This step only applies to steps tagged **"build new"** in Step 6b. Tag those steps that should become skills. For each skill candidate, document:
 - Purpose (one sentence)
+- Covers steps (which step numbers this skill spans)
 - Inputs (what data the skill receives)
 - Outputs (what the skill produces)
 - Decision logic (key rules, criteria, frameworks)
 - Failure modes (what happens when inputs are missing or unexpected)
+- Required tools (which integration blocks the skill needs at runtime — e.g., MCP: Notion)
+- Depends on (other skills or artifacts that must exist before this skill can function)
 
 #### Step 8 — Agent Configuration
 
@@ -170,34 +342,204 @@ Tag steps that should become skills. For each skill candidate, document:
 | Component | What to specify |
 |-----------|----------------|
 | **Name** | Unique agent name |
-| **Description** | Agent purpose and when it should be used |
+| **Purpose** | When this agent should be invoked (trigger conditions) |
 | **Instructions** | Mission, responsibilities, behavior, goals, tone & style, output format |
-| **Model** | Recommended model capability (reasoning-heavy, fast, etc.) |
-| **Tools** | Tools the agent can call (MCP servers, file access, web, APIs) |
+| **Model** | Recommended capability tier: reasoning-heavy / fast / vision |
+| **Tools** | External tools the agent needs (from Integration Options) |
+| **Skills** | Which skill candidates this agent should have access to |
+| **Trigger Examples** | 2-3 example scenarios showing when/how the agent is invoked |
 
-Plus: Context requirements and Goal (trigger/invocation pattern).
+The constructing skill maps these to platform-specific fields at runtime (e.g., "reasoning-heavy" → `opus` on Claude Code, trigger examples → `<example>` blocks).
+
 For multi-agent: orchestration pattern, agent handoffs, human review gates.
 
 #### Step 9 — Generate AI Building Block Spec
 
-Write to `outputs/[workflow-name]-building-block-spec.md`. Includes:
-- Lens (Individual / Organizational)
-- Autonomy level assessment (workflow-level, with rationale)
-- Orchestration mechanism recommendation (with involvement mode)
-- Architecture Decisions (with rationale and constraints summary)
-- Step-by-step decomposition table with per-step autonomy levels and building blocks
-- Autonomy spectrum summary
-- Skill candidate section with generation-ready detail
-- Agent configuration section (when agent-based)
-- Step sequence and dependencies
-- Prerequisites
-- Context inventory
-- Tools and connectors required (list only — availability deferred)
-- **Integration Research Needed** — a section listing every tool/integration that requires platform availability research during Construct. For each: tool name, what it's used for, which steps depend on it.
-- **Model recommendation** — Recommend the model class best suited for this workflow. Consider the complexity of reasoning required, whether speed or depth matters more, and cost sensitivity. Present as a recommendation with rationale (e.g., "A reasoning-heavy model for the research steps, a fast model for the formatting steps"). This applies to all patterns, not just agent-based ones — even a Prompt pattern benefits from knowing whether to use a reasoning model or a fast one.
-- Recommended implementation order (quick wins → semi-autonomous → complex agent steps)
-- Where to Run recommendation
-- For organizational scope: stakeholders section and role swimlane diagram
+Write to `outputs/[workflow-name]-building-block-spec.md` using the template below. Every section is mandatory unless marked (optional). Do not add, remove, rename, or reorder sections.
+
+**Before writing, run the Constructing Skill Needs Checklist** (at the end of this step) to verify all required data has been captured.
+
+---
+
+**Template:**
+
+```markdown
+# [Workflow Name] — AI Building Block Spec
+
+## Execution Pattern
+
+**[Mechanism]** — [1-2 sentence rationale for why this mechanism was chosen over alternatives].
+
+## Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Lens | Individual / Organizational | [reason] |
+| Platform | [name] | [reason] |
+| Platform Mode | code / guided | [inferred from platform or confirmed] |
+| Orchestration | Prompt / Skill-Powered Prompt / Agent | [reason] |
+| Involvement | Augmented / Automated | [reason] |
+| Trigger | [trigger description] | [implications for involvement, infrastructure] |
+
+## Scenario Summary
+
+| Field | Value |
+|---|---|
+| **Workflow Name** | [name] |
+| **Description** | [full description] |
+| **Outcome** | [what a successful run produces] |
+| **Trigger** | [when/how it starts] |
+| **Type** | Augmented / Automated |
+| **Business Process** | [functional category] |
+| **Owner** | [person or role] |
+
+## Step-by-Step Decomposition
+
+| Step | Name | Phase | Autonomy | Orchestration | Integration (use/build) | Intelligence | Skill Candidate? | Human Gate? |
+|------|------|-------|----------|---------------|------------------------|--------------|-------------------|-------------|
+
+Column definitions:
+- **Autonomy**: Human / Deterministic / Guided / Autonomous (canonical terms only)
+- **Orchestration**: Prompt / Skill / Agent
+- **Integration**: Block + tool + action tag (e.g., "MCP: Notion (use)") or "—" if none
+- **Intelligence**: Model class + context sources + memory flag (e.g., "Model: fast" or "Model: reasoning; Context: pillar-definitions")
+- **Skill Candidate?**: Skill name (if new), "Exists: [name]" (if pre-built), or "No"
+- **Human Gate?**: Yes / No
+
+### Autonomy Spectrum Summary
+
+Group steps by autonomy level. For each group, explain WHY those steps have that classification.
+
+## Skill Candidates
+
+For each skill candidate (steps tagged with a new skill name above):
+
+### [skill-name] (Step N)
+
+| Dimension | Detail |
+|---|---|
+| **Purpose** | [one sentence] |
+| **Covers Steps** | [list of step numbers] |
+| **Inputs** | [name (type, default)] |
+| **Outputs** | [what the skill produces] |
+| **Decision Logic** | [key rules, criteria, evaluation frameworks — multiline OK] |
+| **Failure Modes** | [condition → action, one per line] |
+| **Required Tools** | [block: tool (action) — e.g., MCP: Notion (use)] |
+| **Depends On** | [other skills or artifacts that must exist first, or "None"] |
+
+## Agent Configuration (optional — only when orchestration = Agent)
+
+For each agent:
+
+### [agent-name]
+
+| Component | Detail |
+|---|---|
+| **Name** | [lowercase-hyphenated] |
+| **Purpose** | [when this agent should be invoked] |
+| **Instructions** | [mission, responsibilities, behavior, goals, tone, output format] |
+| **Model** | [capability tier: reasoning-heavy / fast / vision] |
+| **Tools** | [external tools needed, from Integration Options] |
+| **Skills** | [skill candidates this agent should have access to] |
+| **Trigger Examples** | [2-3 scenarios: situation → user message → agent response] |
+
+For multi-agent: orchestration pattern, agent handoffs, human review gates.
+
+## Step Sequence and Dependencies
+
+\`\`\`
+[ASCII diagram showing parallel and sequential paths]
+\`\`\`
+
+**Parallel:** [which steps can run concurrently]
+**Sequential:** [which steps must run in order]
+**Critical path:** [longest dependency chain]
+
+## Prerequisites
+
+1. [Numbered list of requirements that must be in place before the workflow can run]
+
+## Context Inventory
+
+| # | Artifact | Type | Used By | Status | Location | Key Contents |
+|---|---|---|---|---|---|---|
+
+Column definitions:
+- **Type**: MCP Data Source / Context / External
+- **Status**: Exists / Create
+- **Location**: File path, URL, database name, or "Create as [path]" / "Create inline in prompt"
+
+## Data Readiness Summary
+
+Items NOT fully AI-accessible. If all items are accessible, state: "All context items are AI-accessible. No data readiness actions required."
+
+| Context Item | Current State | Required Action | Affects Steps |
+|---|---|---|---|
+| [item] | AI-Accessible / Partial / No | [action needed] | [step numbers] |
+
+## Integration Options
+
+For each tool identified in the Integration column of the Step-by-Step Decomposition:
+
+### [Tool Name] (Steps N, M)
+
+**Curated (recommended):**
+
+| Block | Option | Source URL | Trade-off |
+|-------|--------|-----------|-----------|
+| [MCP/API/SDK/CLI] | [name] | [URL] | [trade-off] |
+
+**Also available:**
+
+| Block | Option | Source URL | Trade-off |
+|-------|--------|-----------|-----------|
+| [MCP/API/SDK/CLI] | [name] | [URL] | [trade-off] |
+
+*Recommendation: [block] for [rationale]*
+
+## Model Recommendation
+
+**Default:** [reasoning-heavy / fast / vision] — [rationale]
+
+**Per-step overrides** (optional):
+- Steps N, M: [different model class] — [rationale]
+
+## Recommended Implementation Order
+
+### Quick Wins (implement first)
+1. **[name]** — [rationale]
+
+### Core (implement second)
+1. **[name]** — [rationale]
+
+### Future Enhancement (optional)
+1. **[name]** — [rationale]
+
+## Where to Run
+
+**[Platform]** with [setup requirements]. [Recommendation for frequent use.]
+
+## Stakeholders (optional — only for Organizational lens)
+
+[Role swimlane diagram and stakeholder details]
+```
+
+---
+
+**Constructing Skill Needs Checklist**
+
+Before saving the spec, verify every item. If any is missing, go back and add it:
+
+- [ ] `Architecture Decisions` table has Platform, Platform Mode, Orchestration, and Involvement rows
+- [ ] Every step in the decomposition table has separate Orchestration, Integration, and Intelligence columns (not collapsed into a single "Building Block(s)" column)
+- [ ] Every step uses canonical autonomy terms: Human / Deterministic / Guided / Autonomous
+- [ ] Every Integration column entry includes the block type, tool name, and use/build tag
+- [ ] Every skill candidate has all 8 fields: Purpose, Covers Steps, Inputs, Outputs, Decision Logic, Failure Modes, Required Tools, Depends On
+- [ ] Every "Exists" item in Context Inventory has a Location value
+- [ ] Every tool in the Integration column has a matching entry in Integration Options with at least one Source URL
+- [ ] Model Recommendation section is present with a default class
+- [ ] Data Readiness Summary is present (even if "all accessible")
+- [ ] Agent Configuration is present if orchestration = Agent (with Skills and Trigger Examples fields)
 
 #### Step 10 — Spec Approval Gate
 
@@ -210,7 +552,7 @@ Present a summary of the Building Block Spec:
 > - **Autonomy:** [level]
 > - **Mechanism:** [orchestration mechanism] ([involvement mode])
 > - **Steps:** [count] steps, [count] skill candidates, [count] agents
-> - **Integration research needed:** [count] tools to verify during Construct
+> - **Integration options:** [count] tools with recommended integration approaches
 > - **Implementation order:** [brief summary]
 >
 > The full spec is saved to `outputs/[workflow-name]-building-block-spec.md`.
@@ -229,23 +571,7 @@ After the user approves, instruct them to **exit plan mode** if they entered it 
 
 ### `outputs/[workflow-name]-building-block-spec.md` — AI Building Block Spec
 
-Includes:
-- Autonomy level assessment (workflow-level, with rationale)
-- Orchestration mechanism recommendation with reasoning and involvement mode
-- Architecture Decisions (with rationale and constraints summary)
-- Scenario summary (workflow metadata)
-- Step-by-step decomposition table (per-step autonomy level, building blocks, skill candidate flag)
-- Autonomy spectrum summary
-- Skill candidates (with generation-ready detail)
-- Agent configuration (when applicable)
-- Step sequence and dependencies
-- Prerequisites
-- Context inventory
-- Tools and connectors required (list only)
-- Integration Research Needed (tools requiring platform availability verification)
-- Model recommendation (reasoning-heavy vs fast, with rationale)
-- Recommended implementation order
-- Where to Run recommendation
+Uses the mandatory template defined in Step 9. Sections: Execution Pattern, Architecture Decisions, Scenario Summary, Step-by-Step Decomposition (with separate Orchestration/Integration/Intelligence columns), Autonomy Spectrum Summary, Skill Candidates (8 fields each), Agent Configuration (optional, with Skills and Trigger Examples), Step Sequence and Dependencies, Prerequisites, Context Inventory (with Location column), Data Readiness Summary, Integration Options (with Source URLs), Model Recommendation, Recommended Implementation Order, Where to Run, Stakeholders (optional).
 
 ## Guidelines
 
