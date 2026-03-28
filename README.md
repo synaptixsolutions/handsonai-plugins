@@ -57,6 +57,6 @@ plugins/
 
 ## Documentation
 
-- [Plugin Marketplace](https://handsonai.info/use-the-cookbook/build/) — browse plugins with usage examples
-- [Using Plugins](https://handsonai.info/use-the-cookbook/build/using-plugins/) — installation, usage, and troubleshooting
+- [Plugin Marketplace](https://handsonai.info/use-the-playbook/build/) — browse plugins with usage examples
+- [Using Plugins](https://handsonai.info/use-the-playbook/build/using-plugins/) — installation, usage, and troubleshooting
 - [Plugin Documentation](https://code.claude.com/docs/en/plugins) — official plugin format reference
